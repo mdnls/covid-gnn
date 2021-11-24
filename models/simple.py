@@ -20,4 +20,10 @@ class SoftmaxReluClassifier(torch.nn.Module):
         ...
 
     def forward(self, x):
+        '''
+        Map input x to output y_l.
+
+        :param x: batch of inputs with shape [N, d_in]
+        :return: batch of outputs with shape [N, y]
+        '''
         ...
