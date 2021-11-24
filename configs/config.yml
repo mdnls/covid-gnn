@@ -1,16 +1,17 @@
 propagate:
-  form: "simple-gnn"
+  form: "graph-conv"
   properties:
-    layers: 4
+    state_dim: 20
 
 encode:
-  form: "linear"
+  form: "class-cond-bias"
   properties:
-    layers: 4
+    input_dim: 20
 
 decode:
-  form: "identity"
+  form: "softmax-fcn"
   properties:
+    input_dim: 20
 
 training:
   optim:
@@ -23,4 +24,5 @@ training:
 
 data:
   form: "simple-SIR"
-  
+
+device: "gpu"
