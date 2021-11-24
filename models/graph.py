@@ -1,21 +1,4 @@
-import torch
 import numpy as np
-import networkx as nx
-
-'''
-Functionality for the graph 
-- Given a node index, return a short list of neighboring nodes 
-- Return a sparse adjacency matrix (ie. implicitly an adjacency list 
-- can it be accomplished with networkx? 
-
-Design idea:
-- Use networkx to track nodes and adjacencies 
-- immutability wrt number of nodes 
-- Interactions: either (1) given id, return a local graph for the node with the given id or (2) return the global graph 
-    in the form of sparse adjacency 
-    
-TODO: what is a good global ordering for the (t, n) indexed nodes? 
-'''
 
 class StateGraph():
     def __init__(self, n_vertices, t_time, node_data, edge_weights):
@@ -24,14 +7,13 @@ class StateGraph():
 
         :param n_vertices: number of vertices
         :param t_time: number of timesteps
-        :param node_data: a matrix of shape (t, n, d_h) of d_h-dimensional state vectors per vertex
-        :param edge_weights: a csr sparse matrix of shape (t*n, t*n)
+        :param node_data: a matrix of shape (T, N, d_h) of d_h-dimensional state vectors per vertex
+        :param edge_weights: a csr sparse matrix C of shape (T, N, N) representing adjacencies in the contact graph. If
+            persons (i, j) are in contact at time t then C_{t, i, j} > 0.
         '''
         self.n_vertices = n_vertices
         self.t_time = t_time
         self.node_data = node_data
-        self.nodes = np.array([(t, n) for t in range(t_time) for n in range(n_vertices)])
-        self.node_to_flat = np.arange(t_time * n_vertices).reshape((t_time, n_vertices))
         self.edge_weights = edge_weights
 
     def local_state(self, t, n):
@@ -39,23 +21,31 @@ class StateGraph():
         Return the local graph of node (t, n), consisting of the node, its neighbors, edge weights, and all nodes' state information
         :param n: spatial index of requested node
         :param t: time index of requested node
-        :return: (node_data, [node_data for each neighbor], [edge weight for each neighbor])
+        :return: (present_node_data, past_node_data, [node_data for each neighbor], [edge weight for each neighbor])
         '''
-        idx = self.node_to_flat[t, n]
-        node_data = self.node_data[idx]
-        neighbors = self.edge_weights[idx].nonzero()
-        neighboring_data = self.node_data[neighbors]
-        neighboring_edge_weights = self.edge_weights[idx]
-        return (node_data, neighboring_data, neighboring_edge_weights)
+        present_node_data = self.node_data[t, n]
+        if(t > 0):
+            past_node_data = self.node_data[t - 1, n]
+            neighbors = self.edge_weights[t - 1, n].nonzero()
+            neighboring_data = self.node_data[t - 1, neighbors]
+            neighboring_edge_weights = self.edge_weights[t - 1, n, neighbors]
+        else:
+            past_node_data = np.zeros_like(present_node_data)
+            neighboring_data = np.array([])
+            neighboring_edge_weights = np.array([])
+        return (present_node_data, past_node_data, neighboring_data, neighboring_edge_weights)
 
-
-    def increment(self, node_data, edge_weights):
+    def increment(self, node_data, contacts):
         '''
-        Suppose this state graph incorporates data for times [t-k, t]. Given data for time t+1, return
-             a new state graph incorporating data for times [t-k+1, t+1].
+        Suppose this state graph contains data for times [t-k, t]. Given data for time t+1, return
+             a new state graph containing data for times [t-k+1, t+1].
         :param node_data:
-        :param edge_weights:
+        :param contacts: a csr sparse matrix of size (N, N). If person i and j are in contact at time t, then C_{ij} = C_{ji} > 0.
+            Internally, these contacts are represented by two edges (v_{t+1, i}, v_{t, j}) and vice versa.
         :return:
         '''
 
+        node_data = np.stack([self.node_data[1:], node_data], axis=0)
+        edge_weights = np.stack([self.edge_weights[1:], contacts], axis=0)
 
+        return StateGraph(self.n_vertices, self.t_time, node_data, edge_weights)
