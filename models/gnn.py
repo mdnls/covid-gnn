@@ -1,10 +1,10 @@
 import torch
 
 
-# This guy will do the propagation step, details TBD
-class GNN(torch.nn.Module):
+# This will do the propagation step, details TBD
+class GraphConvGNN(torch.nn.Module):
     def __init__(self):
-        super(GNN, self).__init__()
+        super(GraphConvGNN, self).__init__()
 
     def forward(self, v, neighborhood):
         '''
@@ -15,3 +15,6 @@ class GNN(torch.nn.Module):
             valued edge weight e_{ij} and a neighboring state vector v_j.
         :return: updated state vector of v_i
         '''
+
+    def global_update(self, state_graph):
+        ...

@@ -63,6 +63,7 @@ class ClassConditionalBias(torch.nn.Module):
         :param n_classes: number of classes. Each class is indexed by an integer 0 <= z < n_classes.
         :param dim: dimension of x
         '''
+        super(ClassConditionalBias, self).__init__()
         self.n_classes = len(self.classes)
         self.biases = torch.nn.Parameter(torch.zeros(n_classes, dim))
 
