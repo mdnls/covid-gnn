@@ -1,0 +1,26 @@
+propagate:
+  form: "simple-gnn"
+  properties:
+    layers: 4
+
+encode:
+  form: "linear"
+  properties:
+    layers: 4
+
+decode:
+  form: "identity"
+  properties:
+
+training:
+  optim:
+    lr: 0.01
+    form: "adam"
+    properties:
+      beta1: 0.9
+      beta2: 0.99
+    iters: 100
+
+data:
+  form: "simple-SIR"
+  
