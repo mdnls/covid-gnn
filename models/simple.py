@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import torch.nn as nn
 
 # This guy will do classification of h into [s, i, r] states, it is the P(h) function.
 class SoftmaxReluClassifier(torch.nn.Module):
@@ -17,15 +17,16 @@ class SoftmaxReluClassifier(torch.nn.Module):
         :param layers: integers [d0=d_in, d1, d2, ..., dk=dout]
         :param batchnorm: if true, include batchnorm, ie. layers are z_l = ReLU(BatchNorm(Wz + b))
         '''
-
-        #for i,l in enumerate(layers[:-1]):
-        #    self.add_module('fc{}'.format(i), torch.nn.Linear(l,layers[i+1]))
+        super().__init__()
 
         self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1])] for l in range(len(layers)-1))
+        if(batchnorm):
+            self.batchnorm_layers = torch.nn.ModuleList([nn.BatchNorm1d(num_features=l) for l in layers])
+        self.batchnorm = batchnorm
         self.relu = torch.nn.ReLU()
         self.out = torch.nn.Softmax(dim=-1)
 
-        super(SoftmaxReluClassifier, self).__init__()
+
 
     def forward(self, x):
         '''
@@ -34,8 +35,11 @@ class SoftmaxReluClassifier(torch.nn.Module):
         :param x: batch of inputs with shape [N, d_in]
         :return: batch of outputs with shape [N, y]
         '''
-        for l in self.linears:
-            x = self.relu(l(x))
+
+        for i in range(len(self.linears)):
+            if(self.batchnorm):
+                x = self.batchnorm_layers[i](x)
+            x = self.relu(self.linears[i](x))
 
         return self.out(x)
         
@@ -53,10 +57,12 @@ class ReluFCN(torch.nn.Module):
         :param layers: integers [d0=d_in, d1, d2, ..., dk=dout]
         :param batchnorm: if true, include batchnorm, ie. layers are z_l = ReLU(BatchNorm(Wz + b))
         '''
+        super().__init__()
         self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1])] for l in range(len(layers)-1))
+        if(batchnorm):
+            self.batchnorm_layers = torch.nn.ModuleList([nn.BatchNorm1d(num_features=l) for l in layers])
+        self.batchnorm = batchnorm
         self.relu = torch.nn.ReLU()
-
-        super(ReluFCN, self).__init__()
 
     def forward(self, x):
         '''
@@ -65,10 +71,11 @@ class ReluFCN(torch.nn.Module):
         :param x: batch of inputs with shape [N, d_in]
         :return: batch of outputs with shape [N, y]
         '''
-        for l in self.linears:
-            x = l(x)
-            x = self.relu(x)
 
+        for i in range(len(self.linears)):
+            if (self.batchnorm):
+                x = self.batchnorm_layers[i](x)
+            x = self.relu(self.linears[i](x))
         return x
 
 # Example of embedding function V(h)
