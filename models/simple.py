@@ -17,8 +17,15 @@ class SoftmaxReluClassifier(torch.nn.Module):
         :param layers: integers [d0=d_in, d1, d2, ..., dk=dout]
         :param batchnorm: if true, include batchnorm, ie. layers are z_l = ReLU(BatchNorm(Wz + b))
         '''
+
+        #for i,l in enumerate(layers[:-1]):
+        #    self.add_module('fc{}'.format(i), torch.nn.Linear(l,layers[i+1]))
+
+        self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1])] for l in range(len(layers)-1))
+        self.relu = torch.nn.ReLU()
+        self.out = torch.nn.Softmax(dim=-1)
+
         super(SoftmaxReluClassifier, self).__init__()
-        ...
 
     def forward(self, x):
         '''
@@ -27,7 +34,11 @@ class SoftmaxReluClassifier(torch.nn.Module):
         :param x: batch of inputs with shape [N, d_in]
         :return: batch of outputs with shape [N, y]
         '''
-        ...
+        for l in self.linears:
+            x = self.relu(l(x))
+
+        return self.out(x)
+        
 
 class ReluFCN(torch.nn.Module):
     def __init__(self, layers, batchnorm=False):
@@ -42,8 +53,10 @@ class ReluFCN(torch.nn.Module):
         :param layers: integers [d0=d_in, d1, d2, ..., dk=dout]
         :param batchnorm: if true, include batchnorm, ie. layers are z_l = ReLU(BatchNorm(Wz + b))
         '''
+        self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1])] for l in range(len(layers)-1))
+        self.relu = torch.nn.ReLU()
+
         super(ReluFCN, self).__init__()
-        ...
 
     def forward(self, x):
         '''
@@ -52,7 +65,11 @@ class ReluFCN(torch.nn.Module):
         :param x: batch of inputs with shape [N, d_in]
         :return: batch of outputs with shape [N, y]
         '''
-        ...
+        for l in self.linears:
+            x = l(x)
+            x = self.relu(x)
+
+        return x
 
 # Example of embedding function V(h)
 class ClassConditionalBias(torch.nn.Module):
@@ -63,7 +80,7 @@ class ClassConditionalBias(torch.nn.Module):
         :param n_classes: number of classes. Each class is indexed by an integer 0 <= z < n_classes.
         :param dim: dimension of x
         '''
-        super(ClassConditionalBias, self).__init__()
+
         self.n_classes = len(self.classes)
         self.biases = torch.nn.Parameter(torch.zeros(n_classes, dim))
 
