@@ -4,11 +4,7 @@ import yaml
 import os
 import shutil
 import torch
-    # parse config file
-
-
-
-
+from controller.train import online_mle
 
 def dict2namespace(config):
     namespace = argparse.Namespace()
@@ -25,7 +21,8 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, required=True,  help='Path to config file')
     parser.add_argument('--name', type=str, required=True, help='Name of this experiment')
     parser.add_argument('--overwrite', action="store_true", help='Force overwrite any experiment output')
-
+    parser.add_argument('--evaluate', action="store_true", help="Run the code in evaluation mode")
+    parser.add_argument('--verbose', type=str, default="warn", help="Set the level of verbosity for logging data")
     args = parser.parse_args()
 
     with open(os.path.join('configs', args.config), 'r') as f:
@@ -63,5 +60,8 @@ if __name__ == "__main__":
     config.exp_dir = exp_dir
     config.name = args.name
 
-    # TODO: add cmd argument to simulate() or train() the model. Use if statement to call appropriate placeholder methods in controller
 
+    if(args.evaluate):
+        print("Evaluate!")
+    else:
+        online_mle(args, config)
