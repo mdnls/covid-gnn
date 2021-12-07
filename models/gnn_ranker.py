@@ -1,28 +1,32 @@
 
 
 class GNNRanker():
-    def __init__(self, encoder, propagator, decoder):
+    def __init__(self, encoder, propagator, decoder, predictor):
         '''
-
-        :param encoder: encoding function,
-            input: [N, d_h] batch of hidden vectors. [N,] vector of classes, each coordinate is 0 (no test) or 1 (negative test) or 2 (positive test).
-            output: [N, d_{h'}] encoded hidden vectors
+        :param encoder: graph encoder network, StateGraph -> StateGraph
         :param propagator: GNN based hidden update function,
-            input: StateGraph
-            output: StateGraph
         :param decoder: neural network mapping to perform SIR 'classification' on each node output by the propagator
-            input: StateGraph
-            output: [N, 3] vector, each row sums to 1, representing
+        :param predictor: map state vectors to SIR predictions
         '''
         self.encoder = encoder
         self.propagator = propagator
         self.decoder = decoder
+        self.predictor = predictor
 
-    def encode(self, hidden_state):
-        return self.encoder.forward(hidden_state)
+    def state_update(self, state_graph, observations):
+        '''
+        Given an input state graph, encode its information into a graph and propagate hidden data, returning the
+        new hidden data.
 
-    def propagate(self, hidden_state):
-        return self.propagate(hidden_state)
+        :param state_graph: a StateGraph
+        :param observations: a [T by N] sparse matrix of observations
+        :return: an [N, d_h] matrix of new hidden information for each node
+        '''
+        enc_state_graph = self.encoder(state_graph, observations)
+        prp_state_graph = self.propagator(enc_state_graph)
+        dec_state_vectors = self.decoder(prp_state_graph)
+        return dec_state_vectors
 
-    def decode(self, hidden_state):
-        return self.decode(hidden_state)
+    def predict(self, state_vectors):
+        return self.predictor(state_vectors)
+
