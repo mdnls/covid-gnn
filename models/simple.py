@@ -19,7 +19,7 @@ class SoftmaxReluClassifier(torch.nn.Module):
         '''
         super().__init__()
 
-        self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1])] for l in range(len(layers)-1))
+        self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1]) for l in range(len(layers)-1)])
         if(batchnorm):
             self.batchnorm_layers = torch.nn.ModuleList([nn.BatchNorm1d(num_features=l) for l in layers])
         self.batchnorm = batchnorm
@@ -58,7 +58,7 @@ class ReluFCN(torch.nn.Module):
         :param batchnorm: if true, include batchnorm, ie. layers are z_l = ReLU(BatchNorm(Wz + b))
         '''
         super().__init__()
-        self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1])] for l in range(len(layers)-1))
+        self.linears = torch.nn.ModuleList([nn.Linear(layers[l],layers[l+1]) for l in range(len(layers)-1)])
         if(batchnorm):
             self.batchnorm_layers = torch.nn.ModuleList([nn.BatchNorm1d(num_features=l) for l in layers])
         self.batchnorm = batchnorm
@@ -99,3 +99,4 @@ class ClassConditionalBias(torch.nn.Module):
         :return: y = x+bz
         '''
         return x + torch.take(self.biases, classes)
+
