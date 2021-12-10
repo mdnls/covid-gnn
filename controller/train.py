@@ -5,13 +5,46 @@ from models.gnn_ranker import GNNRanker
 import numpy as np
 import torch
 
+def predict(state_graph):
+    '''
 
-def online_mle(self, cnf):
+    :param state_graph: a StateGraph for time t
+    :return: a matrix [N by 3] whose rows sum to 1. Predicted probabilities of [S, I, R] for each person.
+    '''
+    return ...
+
+def train_step(state_graph, observations):
+    '''
+    :param observations: an [N by 3] matrix whose coordinates are 0, 1 summing to 1.
+        Each person is tested as [+, -, na].
+    :return:
+    '''
+    P = predict(state_graph)
+    # minimize loss(P, observations)
+
+def train(self, cnf):
+    pass
+
+def simulate_without_intervention(self, cnf):
+    pass
+
+def simulate(self, cnf):
+    '''
+    For each time step t=1...T
+        use openabm to simulate one step of epidemic
+        call a generic method predict(state_graph) to have P in R[N by 3], probabilities of each person's state
+        given these probabilities, rank people and decide who to test
+        ---> next openabm step, *with* tests computed at this step which decide who to quarantine 
+    '''
+    pass
+
+def test_init(self, cnf):
     to_th = lambda x: torch.FloatTensor(x)
 
     Tk = cnf.setting.time_window
     N = cnf.setting.n_vertices
-    dh = cnf.model.propagate.properties.state_dim
+    dh = cnf.model.propagate.state_dim
+
     encoder = SpikeEncoder(n_vertices=N,
                            t_timesteps=Tk,
                            state_dim=dh)
@@ -21,7 +54,10 @@ def online_mle(self, cnf):
                          layers=[Tk*dh, dh, dh],
                          state_dim=dh)
     predictor = SoftmaxReluClassifier(layers=[dh, 3], batchnorm=False)
+
+
     ranker = GNNRanker(encoder=encoder, propagator=propagator, decoder=decoder, predictor=predictor)
+
 
     fake_node_data = torch.FloatTensor(np.random.normal(size=(Tk, N, dh)))
     n_random_contacts = int(0.05 * Tk*N*N)
@@ -29,13 +65,17 @@ def online_mle(self, cnf):
                               to_th(np.random.choice(N, size=(n_random_contacts,))),
                               to_th(np.random.choice(N, size=(n_random_contacts)))])
     random_contact_duration = np.random.exponential(size=(n_random_contacts))
-    fake_state_graph = StateGraph(N, Tk, fake_node_data, torch.sparse_coo_tensor(random_contact_indices, random_contact_duration, size=(Tk, N, N), dtype=torch.float32))
+    fake_state_graph = StateGraph(N, Tk, fake_node_data,
+                                  torch.sparse_coo_tensor(random_contact_indices, random_contact_duration, size=(Tk, N, N), dtype=torch.float32))
+
     local_state = fake_state_graph.local_state(1, 1)
 
     fake_observations = np.zeros((Tk, N))
     fake_observations[0, 0] = 1
     fake_observations[1, 1] = -1
+
     F = ranker.state_update(fake_state_graph, fake_observations)
+
     print(F)
 
 
