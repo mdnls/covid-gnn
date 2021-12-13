@@ -30,7 +30,7 @@ class Ranker(AbstractRanker):
         return: list -- [(index, value), ...]
         '''
         pred_prob = predict(state_graph)
-        inf_prob = [[i, predict[i,1]] for i in range(self.N)]
+        inf_prob = [[i, pred_prob[i,1]] for i in range(self.N)]
             
         rank = list(sorted(inf_prob, key=lambda tup: tup[1], reverse=True))
         return rank
