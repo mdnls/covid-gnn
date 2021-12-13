@@ -37,7 +37,9 @@ pautoinf = 1/N
 
 import imp
 imp.reload(loop_abm)
-'''
+
+data = {}
+
 loop_abm.loop_abm(
     params_model,
     rankers[s],
@@ -57,7 +59,7 @@ loop_abm.loop_abm(
     fn_rate = fn_rate,
     name_file_res = s + f"_N_{N}_T_{T}_obs_{num_test_algo}_SM_obs_{fraction_SM_obs}_seed_{seed}"
 )
-'''
+
 loop_abm.free_abm(
     params_model,
     #seed=new_seed,

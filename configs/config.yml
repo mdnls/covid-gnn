@@ -17,6 +17,8 @@ model:
 setting:
   time_window: 14
   n_vertices: 100
+  #time_total: 50
+  #seed: 0 #seed of the random number generator
 
 training:
   optim:
@@ -28,7 +30,18 @@ training:
     iters: 100
 
 data:
-  form: "simple-SIR"
+  openabm:
+    n_seed_infection: 10 #numer of patients zero
+    fraction_SM_obs: 0.5 #fraction of Symptomatic Mild tested positive
+    fraction_SS_obs: 1 #fraction of Symptomatic Severe tested positive
+    initial_steps: 12 #starting time of intervention
+    quarantine_HH: True #Households quarantine
+    test_HH: True #Tests the households when quarantined
+    adoption_fraction: 1 #app adoption (fraction)
+    num_test_random: 0 #number of random tests per day
+    num_test_algo: 200 #number of tests using by the ranker per day
+    fp_rate: 0.0 #test false-positive rate
+    fn_rate: 0.0 #test false-negative rate
 
 
 device: "gpu"

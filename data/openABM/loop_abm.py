@@ -12,7 +12,7 @@ import COVID19.simulation as simulation
 from abm_utils import status_to_state, listofhouses, dummy_logger, quarantine_households
 #import sib
 #import greedy_Rank
-'''
+
 def loop_abm(params,
              inference_algo,
              logger = dummy_logger(),
@@ -288,7 +288,6 @@ def loop_abm(params,
     return df_save
 
 
-'''
 
 
 def free_abm(params,
