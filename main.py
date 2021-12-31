@@ -4,7 +4,7 @@ import yaml
 import os
 import shutil
 import torch
-from controller.train import online_mle
+from controller.train import test_init
 
 def dict2namespace(config):
     namespace = argparse.Namespace()
@@ -60,8 +60,8 @@ if __name__ == "__main__":
     config.exp_dir = exp_dir
     config.name = args.name
 
-
+    test_init(config)
     if(args.evaluate):
         print("Evaluate!")
     else:
-        online_mle(args, config)
+       print("Train")
