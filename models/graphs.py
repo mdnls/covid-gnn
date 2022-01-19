@@ -74,6 +74,14 @@ class StateGraph():
             neighboring_edge_weights = np.array([])
         return (present_node_data, past_node_data, neighboring_data, neighboring_edge_weights)
 
+    def detach(self):
+        '''
+        Detach this state graph from the computation graph, preventing its data from accumulating gradients from existing
+            function evaluations.
+        :return: a detached copy of this state graph.
+        '''
+        return StateGraph(self.n_vertices, self.t_time, self._node_data.detach(), self._edge_weights.detach())
+
     def increment(self, node_data, contacts):
         '''
         Suppose this state graph contains data for times [t-k, t]. Given data for time t+1, return

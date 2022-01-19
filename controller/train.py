@@ -46,6 +46,7 @@ def train(cnf, observations, contacts):
 
     state = StateGraph(n_vertices=N, t_time=Tk, node_data=init_node_data, edge_weights=init_contacts)
     loss = torch.nn.BCELoss()
+    torch.autograd.set_detect_anomaly(True)
     for epoch in range(cnf.training.epochs):
         sum_loss = 0
         for iter in trange(len(obs_batches) - 1):
@@ -54,7 +55,7 @@ def train(cnf, observations, contacts):
             new_contacts = contact_batches[iter+1]
 
             new_state_vecs = ranker.state_update(state, current_obs)
-            state = state.increment(new_state_vecs, new_contacts)
+            state = state.increment(new_state_vecs, new_contacts).detach()
 
             new_pred = ranker.predict(new_state_vecs) # Each row is 3-dim probabilities of S, I, R
             new_pred_as_binary = (new_pred @ torch.FloatTensor([[1, 0], [0, 1], [1, 0]])).reshape((N, 2)) # Convert S, I, R to +, -
