@@ -5,6 +5,7 @@ import os
 import shutil
 import torch
 from controller.train import test_init
+from controller.train import test_init_openabm
 
 def dict2namespace(config):
     namespace = argparse.Namespace()
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     config.exp_dir = exp_dir
     config.name = args.name
 
-    test_init(config)
+    test_init_openabm(config)
     if(args.evaluate):
         print("Evaluate!")
     else:

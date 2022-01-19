@@ -2,22 +2,24 @@ import numpy as np
 import pandas as pd
 import pickle
 from pathlib import Path
+import os.path
 
 import covid19
 from COVID19.model import AgeGroupEnum, EVENT_TYPES, TransmissionTypeEnum
 from COVID19.model import Model, Parameters, ModelParameterException
 import COVID19.simulation as simulation
 
-#from analysis_utils import ranker_I, check_fn_I, ranker_IR, check_fn_IR, roc_curve, events_list
-from abm_utils import status_to_state, listofhouses, dummy_logger, quarantine_households
+
+from data.openABM.analysis_utils import ranker_I, check_fn_I, ranker_IR, check_fn_IR, roc_curve, events_list
+from data.openABM.abm_utils import status_to_state, listofhouses, dummy_logger, quarantine_households
 #import sib
 #import greedy_Rank
 
 def loop_abm(params,
              inference_algo,
              logger = dummy_logger(),
-             input_parameter_file = "./abm_params/baseline_parameters.csv",
-             household_demographics_file = "./abm_params/baseline_household_demographics.csv",
+             input_parameter_file = os.path.join("data","openABM","abm_params","baseline_parameters.csv"),
+             household_demographics_file = os.path.join("data","openABM","abm_params","baseline_household_demographics.csv"),
              parameter_line_number = 1,
              seed=1,
              initial_steps = 0,
@@ -25,7 +27,7 @@ def loop_abm(params,
              num_test_algo = 50,
              fraction_SM_obs = 0.2,
              fraction_SS_obs = 1,
-             quarantine_HH = False,             
+             quarantine_HH = False,            
              test_HH = False,
              name_file_res = "res",
              output_dir = "./output/",
@@ -38,19 +40,14 @@ def loop_abm(params,
              callback = lambda x : None,
              data = {}
             ):
-    ''
-    Simulate interventions strategy on the openABM epidemic simulation.
+    '''
+    Simulate interventions strategy on the openABM epidemic simulation and 
+    print on file true configurations and transmission.
 
-    input
-    -----
-    params: Dict
-            Dictonary with openABM to set
-    inference_algo: Class (rank_template)
-            Class for order the nodes according to the prob to be infected
-            logger = logger for printing intermediate steps
-    results:
-        print on file true configurations and transmission
-    ''
+    :param params: Dictonary with openABM to set
+    :param inference_algo: Class (rank_template) for order the nodes according to the prob to be infected
+    :param logger: logger for printing intermediate steps
+    '''
 
     params_model = Parameters(input_parameter_file,
                           parameter_line_number,
@@ -71,13 +68,12 @@ def loop_abm(params,
         params_model.set_param(k, val)
     model = Model(params_model)
     model = simulation.COVID19IBM(model=model)
-
     
     T = params_model.get_param("end_time")
     N = params_model.get_param("n_total")
-    sim = simulation.Simulation(env=model, end_time=T, verbose=False)
-    house = covid19.get_house(model.model.c_model)
-    housedict = listofhouses(house)
+    sim = simulation.Simulation(env=model, end_time=T) #, verbose=False)
+    #house = covid19.get_house(model.model.c_model)
+    #housedict = listofhouses(house)
     has_app = covid19.get_app_users(model.model.c_model) if smartphone_users_abm else np.ones(N,dtype = int)
     has_app &= (rng.random(N) <= adoption_fraction)    
 
@@ -90,8 +86,10 @@ def loop_abm(params,
     data_states["tested_SS"] = []
     data_states["tested_SM"] = []
     for name in ["num_quarantined", "q_SS", "q_SM", "q_algo", "q_random", "q_all", "infected_free", "S", "I", "R", "IR", "aurI", "prec1%", "prec5%", "test_+", "test_-", "test_f+", "test_f-"]:
-        data[name] = np.full(T,np.nan)
+        data[name] = np.full(T,np.nan) 
     data["logger"] = logger
+    data["contacts"] = [] #ADDED
+    data["observations"] = np.zeros((T,N)) #ADDED
 
     
     ### init inference algo
@@ -159,7 +157,7 @@ def loop_abm(params,
                     p_num_today += 1
                     if state[i] != 1:
                         fp_num_today += 1
-                    q = housedict[house[i]] if quarantine_HH else [i]
+                    q = [i] #housedict[house[i]] if quarantine_HH else [i]
                     excluded_now[q] = True
                     to_quarantine += q
                     excluded[q] = True
@@ -216,6 +214,8 @@ def loop_abm(params,
         ### update observations
         daily_obs = [(int(i), int(f_state[i]), int(t)) for i in all_test]
         all_obs += daily_obs
+        for o in daily_obs:
+            data["observations"][t][o[0]]= o[1]*2-1
 
         ### exclude forever nodes that are observed recovered
         rec = [i[0] for i in daily_obs if f_state[i[0]] == 2]
@@ -254,105 +254,39 @@ def loop_abm(params,
         data["infected_free"][t] = nfree
         asbirds = 'a bird' if nfree == 1 else 'birds'
 
+        data["contacts"].append(daily_contacts)
+
         fp_num += fp_num_today
         fn_num += fn_num_today
         n_num += n_num_today
         p_num += p_num_today
         
-        ### show output
-        logger.info(f"True  : (S,I,R): ({nS:.1f}, {nI:.1f}, {nR:.1f})")
-        logger.info(f"AUR_I : {aurI:.3f}, prec(1% of {len(yI)}): {prec(1):.2f}, prec5%: {prec(5):.2f}")
-        logger.info(f"SS: {len(SS)}, SM: {len(SM)}, results test algo (S,I,R): ({sus_test_algo},{inf_test_algo},{rec_test_algo}), infected test random: {inf_test_random}/{num_test_random}")
-        logger.info(f"false+: {fp_num} (+{fp_num_today}), false-: {fn_num} (+{fn_num_today})")
-        logger.info(f"...quarantining {len(to_quarantine)} guys -> got {ninfq} infected, {nfree} free as {asbirds} ({nfree-freebirds:+d})")
-        freebirds = nfree
+    return 0#df_save
 
-        ### callback
-        callback(data)
+            ### show output
+        #logger.info(f"True  : (S,I,R): ({nS:.1f}, {nI:.1f}, {nR:.1f})")
+        #logger.info(f"AUR_I : {aurI:.3f}, prec(1% of {len(yI)}): {prec(1):.2f}, prec5%: {prec(5):.2f}")
+        #logger.info(f"SS: {len(SS)}, SM: {len(SM)}, results test algo (S,I,R): ({sus_test_algo},{inf_test_algo},{rec_test_algo}), infected test random: {inf_test_random}/{num_test_random}")
+        #logger.info(f"false+: {fp_num} (+{fp_num_today}), false-: {fn_num} (+{fn_num_today})")
+        #logger.info(f"...quarantining {len(to_quarantine)} guys -> got {ninfq} infected, {nfree} free as {asbirds} ({nfree-freebirds:+d})")
+        #freebirds = nfree
+        #
+        #### callback
+        #callback(data)
 
-        if t % save_every_iter == 0:
-            df_save = pd.DataFrame.from_records(data, exclude=["logger"])
-            df_save.to_csv(output_dir + name_file_res + "_res.gz")
+        #if t % save_every_iter == 0:
+        #    df_save = pd.DataFrame.from_records(data, exclude=["logger"])
+        #    df_save.to_csv(output_dir + name_file_res + "_res.gz")
 
     # save files
-    df_save = pd.DataFrame.from_records(data, exclude=["logger"])
-    df_save.to_csv(output_dir + name_file_res + "_res.gz")
-    with open(output_dir + name_file_res + "_states.pkl", mode="wb") as f_states:
-        pickle.dump(data_states, f_states)
-    sim.env.model.write_individual_file()
-    df_indiv = pd.read_csv(output_dir+"individual_file_Run1.csv", skipinitialspace = True)
-    df_indiv.to_csv(output_dir+name_file_res+"_individuals.gz")
-    sim.env.model.write_transmissions()
-    df_trans = pd.read_csv(output_dir+"transmission_Run1.csv")
-    df_trans.to_csv(output_dir + name_file_res+"_transmissions.gz")
-    return df_save
+    #df_save = pd.DataFrame.from_records(data, exclude=["logger"])
+    #df_save.to_csv(output_dir + name_file_res + "_res.gz")
+    #with open(output_dir + name_file_res + "_states.pkl", mode="wb") as f_states:
+    #    pickle.dump(data_states, f_states)
+    #sim.env.model.write_individual_file()
+    #df_indiv = pd.read_csv(output_dir+"individual_file_Run1.csv", skipinitialspace = True)
+    #df_indiv.to_csv(output_dir+name_file_res+"_individuals.gz")
+    #sim.env.model.write_transmissions()
+    #df_trans = pd.read_csv(output_dir+"transmission_Run1.csv")
+    #df_trans.to_csv(output_dir + name_file_res+"_transmissions.gz")
 
-
-
-
-def free_abm(params,
-             logger = dummy_logger(),
-             input_parameter_file = "./abm_params/baseline_parameters.csv",
-             household_demographics_file = "./abm_params/baseline_household_demographics.csv",
-             parameter_line_number = 1,
-             name_file_res = "res",
-             output_dir = "./output/",
-             save_every_iter = 5,
-             stop_zero_I = True,
-             data = {},
-             callback = lambda data : None
-            ):    
-    '''
-    Simulate the openABM epidemic simulation with no intervention strategy
-
-    input
-    -----
-    params: Dict
-            Dictonary with openABM to set
-    results:
-        print on file true configurations and transmission
-    '''
-    
-    params_model = Parameters(input_parameter_file,
-                          parameter_line_number,
-                          output_dir,
-                          household_demographics_file)
-    
-    fold_out = Path(output_dir)
-    if not fold_out.exists():
-        fold_out.mkdir(parents=True)
-
-    params_model = Parameters()
-    for k, val in params.items():
-        params_model.set_param(k, val)
-    model = simulation.COVID19IBM(model = Model(params_model))
-    
-    T = params_model.get_param("end_time")
-    N = params_model.get_param("n_total")
-    sim = simulation.Simulation(env=model, end_time=T, verbose=False)
-    for col_name in ["I","IR"]:
-        data[col_name] = np.full(T,np.nan)
-    for t in range(T):
-        sim.steps(1)
-        status = np.array(covid19.get_state(model.model.c_model))
-        state = status_to_state(status)
-        nS, nI, nR = (state == 0).sum(), (state == 1).sum(), (state == 2).sum()
-        if nI == 0 and stop_zero_I:
-            logger.info("stopping simulation as there are no more infected individuals")
-            break
-        logger.info(f'time:{t}')
-
-        data["I"][t] = nI
-        data["IR"][t] = nI + nR
-
-        callback(data)
-
-    # print and import files
-    sim.env.model.write_individual_file()
-    df_indiv = pd.read_csv(output_dir+"individual_file_Run1.csv", skipinitialspace = True)
-    df_indiv.to_csv(output_dir+name_file_res+"_individuals.gz")
-    sim.env.model.write_transmissions()
-    df_trans = pd.read_csv(output_dir+"transmission_Run1.csv")
-    df_trans.to_csv(output_dir + name_file_res+"_transmissions.gz")
-    print("End of Simulation")
-    return 
