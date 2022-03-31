@@ -60,7 +60,7 @@ def train(cnf, observations, contacts):
             new_contacts = contact_batches[iter+1]
 
             new_state_vecs = ranker.state_update(state, current_obs)
-            state = state.increment(new_state_vecs, new_contacts).detach()
+            state = state.increment(new_state_vecs, new_contacts)#.detach()
 
             new_pred = ranker.predict(new_state_vecs) # Each row is 3-dim probabilities of S, I, R
             new_pred_as_binary = (new_pred @ torch.FloatTensor([[1, 0], [0, 1], [1, 0]])).reshape((N, 2)) # Convert S, I, R to +, -
@@ -68,7 +68,8 @@ def train(cnf, observations, contacts):
             new_obs_proba, observed_indices = cur_test_proba(new_obs)
             opt.zero_grad()
             L = loss(new_pred_as_binary[observed_indices], new_obs_proba[observed_indices])
-            L.backward(retain_graph=True)
+            if (iter) : L.backward()
+            else: L.backward(retain_graph=True)
             opt.step()
 
             sum_loss += L.item()
@@ -124,15 +125,15 @@ def simulate(cnf):
     
     return data["observations"], contact_indices
 
-def generate_one_conf(g, lamb, perc_sources, T):
+def generate_one_conf(g, lam, mu, perc_sources, T):
     import ndlib
     import ndlib.models.epidemics as ep
     import ndlib.models.ModelConfig as mc
     N = g.number_of_nodes()
     model = ep.SIModel(g)
     cfg = mc.Configuration()
-    cfg.add_model_parameter("beta", lamb)  # infection rate
-    # cfg.add_model_parameter('gamma', 0.0) # recovery rate
+    cfg.add_model_parameter("beta", lam)  # infection rate
+    cfg.add_model_parameter("gamma", mu)  # recovery rate
     infected_nodes = []
     for i in range(N):
         if (np.random.rand() < perc_sources) : infected_nodes.append(i)
@@ -165,7 +166,7 @@ def simulate_SIR(cnf):
     d = cnf.sir.degree
 
     g = nx.random_regular_graph(n=N, d=d)
-    conf = generate_one_conf(g, lamb=cnf.sir.lam, perc_sources=cnf.sir.perc_sources, T=T)
+    conf = generate_one_conf(g, lam=cnf.sir.lam, mu=cnf.sir.mu, perc_sources=cnf.sir.perc_sources, T=T)
 
     contacts = [[] for _ in range(T)]
     obs_sim = np.zeros((T,N))
@@ -179,10 +180,10 @@ def simulate_SIR(cnf):
             contacts[t].append([e[1], e[0]])
         obs_list = random.sample(range(N), M)
         for i in obs_list:
-            obs_sim[t][i] = conf[t][i]*2-1 #to change if SI ---> SIR
+            # obs_sim[t][i] = conf[t][i]*2-1 # if SI
+            obs_sim[t][i] = conf[t][i]
+            if (conf[t][i] != 1): obs_sim[t][i]=-1
 
-    #contact_indices = [ np.transpose(np.array([ ot[o][:2] for o in range(len(ot)) ])) for ot in contacts ]
-    
     return obs_sim, contacts
 
 
