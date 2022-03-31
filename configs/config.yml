@@ -47,4 +47,12 @@ openabm:
   fp_rate: 0.0 #test false-positive rate
   fn_rate: 0.0 #test false-negative rate
 
+sir:
+  contact_graph: "rrg"
+  degree: 3
+  lam: 0.05
+  mu: 0.1
+  perc_sources: 0.01
+  num_test: 100
+
 device: "gpu"

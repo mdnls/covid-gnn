@@ -7,8 +7,6 @@ import torch
 
 
 from rankers import Ranker
-from data.openABM.loop_abm import loop_abm
-from data.openABM import abm_utils
 
 
 
@@ -83,6 +81,8 @@ def train(cnf, observations, contacts):
 #    pass
 
 def simulate(cnf):
+    from data.openABM.loop_abm import loop_abm
+    from data.openABM import abm_utils
     '''
     For each time step t=1...T
         use openabm to simulate one step of epidemic
@@ -123,6 +123,68 @@ def simulate(cnf):
     contact_indices = [ np.transpose(np.array([ ot[o][:2] for o in range(len(ot)) ])) for ot in data["contacts"] ]
     
     return data["observations"], contact_indices
+
+def generate_one_conf(g, lamb, perc_sources, T):
+    N = g.number_of_nodes()
+    model = ep.SIModel(g)
+    cfg = mc.Configuration()
+    cfg.add_model_parameter("beta", lamb)  # infection rate
+    # cfg.add_model_parameter('gamma', 0.0) # recovery rate
+    infected_nodes = []
+    for i in range(N):
+        if (np.random.rand() < perc_sources) : infected_nodes.append(i)
+
+    cfg.add_model_initial_configuration("Infected", infected_nodes)
+    model.set_initial_status(cfg)
+    status_nodes = []
+    status_nodes_t = np.zeros(N, dtype=int)
+    
+    for t in range(T):
+        iteration = model.iteration(node_status=True)
+        for node_i in iteration["status"].keys():
+            status_nodes_t[node_i] = iteration["status"][node_i]
+        status_nodes.append(status_nodes_t.copy())
+
+    return np.array(status_nodes)
+
+
+def simulate_SIR(cnf):
+    '''
+    For each time step t=1...T
+        simulate one step of epidemic through simple SIR
+    Returns contacts and observations for each time t
+  
+    '''
+    import random
+    import ndlib
+    import networkx as nx
+    import ndlib.models.epidemics as ep
+    import ndlib.models.ModelConfig as mc
+    T = cnf.setting.time_total
+    N = cnf.setting.n_vertices
+    d = cnf.sir.degree
+
+    g = nx.random_regular_graph(n=N, d=d)
+    conf = generate_one_conf(g, lamb=cnf.sir.lam, perc_sources=cnf.sir.perc_sources, T=T)
+
+    contacts = []
+    obs_sim = np.zeros((T,N))
+    N = len(conf[0])
+    M = cnf.sir.num_test
+    T = len(conf)
+
+    for t in range(T):
+        for e in g.edges():
+            contacts.append([e[0], e[1]])
+            contacts.append([e[1], e[0]])
+        obs_list = random.sample(range(N), M)
+        for i in obs_list:
+            obs_sim[t][i] = conf[i]*2-1 #to change if SI ---> SIR
+
+    #contact_indices = [ np.transpose(np.array([ ot[o][:2] for o in range(len(ot)) ])) for ot in contacts ]
+    
+    return obs_sim, contacts
+
 
 
 def test_init(cnf):
@@ -177,6 +239,28 @@ def test_init_openabm(cnf):
     #dh = cnf.model.propagate.state_dim
 
     obs_matrix, contact_indices_matrix = simulate(cnf)
+
+    contact_indices =[torch.vstack( (to_th(contact_indices_matrix[i][0]),
+                                            to_th(contact_indices_matrix[i][1])))
+                             for i in range(T)]
+    n_contacts = [len(c[0]) for c in contact_indices_matrix ]
+    contact_duration = [ np.random.exponential(size=(n_contacts[i],)) for i in range(T)]
+    contacts = [torch.sparse_coo_tensor(contact_indices[i], contact_duration[i], size=(N, N), dtype=torch.float32) for i in range(T)]
+    observations = torch.FloatTensor(obs_matrix)
+    print("I")
+    train(cnf, observations, contacts)
+
+    print("F")
+
+def test_init_SIR(cnf):
+    to_th = lambda x: torch.FloatTensor(x)
+
+    T = cnf.setting.time_total
+    #Tk = cnf.setting.time_window
+    N = cnf.setting.n_vertices
+    #dh = cnf.model.propagate.state_dim
+
+    obs_matrix, contact_indices_matrix = simulate_SIR(cnf)
 
     contact_indices =[torch.vstack( (to_th(contact_indices_matrix[i][0]),
                                             to_th(contact_indices_matrix[i][1])))
