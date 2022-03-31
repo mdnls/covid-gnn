@@ -125,6 +125,9 @@ def simulate(cnf):
     return data["observations"], contact_indices
 
 def generate_one_conf(g, lamb, perc_sources, T):
+    import ndlib
+    import ndlib.models.epidemics as ep
+    import ndlib.models.ModelConfig as mc
     N = g.number_of_nodes()
     model = ep.SIModel(g)
     cfg = mc.Configuration()
@@ -156,10 +159,7 @@ def simulate_SIR(cnf):
   
     '''
     import random
-    import ndlib
     import networkx as nx
-    import ndlib.models.epidemics as ep
-    import ndlib.models.ModelConfig as mc
     T = cnf.setting.time_total
     N = cnf.setting.n_vertices
     d = cnf.sir.degree
@@ -167,7 +167,7 @@ def simulate_SIR(cnf):
     g = nx.random_regular_graph(n=N, d=d)
     conf = generate_one_conf(g, lamb=cnf.sir.lam, perc_sources=cnf.sir.perc_sources, T=T)
 
-    contacts = []
+    contacts = [[] for _ in range(T)]
     obs_sim = np.zeros((T,N))
     N = len(conf[0])
     M = cnf.sir.num_test
@@ -175,11 +175,11 @@ def simulate_SIR(cnf):
 
     for t in range(T):
         for e in g.edges():
-            contacts.append([e[0], e[1]])
-            contacts.append([e[1], e[0]])
+            contacts[t].append([e[0], e[1]])
+            contacts[t].append([e[1], e[0]])
         obs_list = random.sample(range(N), M)
         for i in obs_list:
-            obs_sim[t][i] = conf[i]*2-1 #to change if SI ---> SIR
+            obs_sim[t][i] = conf[t][i]*2-1 #to change if SI ---> SIR
 
     #contact_indices = [ np.transpose(np.array([ ot[o][:2] for o in range(len(ot)) ])) for ot in contacts ]
     
